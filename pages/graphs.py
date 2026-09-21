@@ -847,13 +847,25 @@ with teams_tab:
     gws, matrix = build_fixture_difficulty_matrix(
         fixtures, ordered_team_ids, heatmap_start, heatmap_end
     )
+    team_labels = [teams[tid]["short"] for tid in ordered_team_ids]
+    cell_labels = [
+        ["" if value is None else f"{value:g}" for value in row]
+        for row in matrix
+    ]
+    heatmap_height = max(560, len(team_labels) * 30 + 160)
     heatmap = go.Figure(
         data=go.Heatmap(
             z=matrix,
+            text=cell_labels,
+            texttemplate="%{text}",
+            textfont=dict(color="#16051d", size=13),
             x=[f"GW{gw}" for gw in gws],
-            y=[teams[tid]["short"] for tid in ordered_team_ids],
+            y=team_labels,
             zmin=1,
             zmax=5,
+            xgap=2,
+            ygap=2,
+            hoverongaps=False,
             colorscale=[
                 [0.0, "#00ff87"],
                 [0.5, "#ffb500"],
@@ -862,7 +874,15 @@ with teams_tab:
             colorbar=dict(title="FDR"),
         )
     )
-    apply_plotly_layout(heatmap, title="Upcoming fixture difficulty", height=420)
+    apply_plotly_layout(
+        heatmap, title="Upcoming fixture difficulty", height=heatmap_height
+    )
+    heatmap.update_layout(plot_bgcolor="rgba(255,255,255,0.55)")
+    heatmap.update_yaxes(
+        tickmode="array",
+        tickvals=team_labels,
+        ticktext=team_labels,
+    )
     st.plotly_chart(heatmap, use_container_width=True)
 
 with live_tab:
