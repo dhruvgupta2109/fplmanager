@@ -285,22 +285,6 @@ def update_selected_player(clicks):
         return
 
 
-def update_selected_team(clicks):
-    if not clicks:
-        return
-    custom = clicks[0].get("customdata")
-    if isinstance(custom, list):
-        candidate = custom[0] if custom else None
-    else:
-        candidate = custom
-    if candidate is None:
-        return
-    try:
-        st.session_state.team_filter = int(candidate)
-    except (TypeError, ValueError):
-        return
-
-
 def build_fixture_difficulty_matrix(fixtures, team_ids, gw_start, gw_end):
     gws = list(range(gw_start, gw_end + 1))
     bucket = {team_id: {gw: [] for gw in gws} for team_id in team_ids}
@@ -776,33 +760,6 @@ with teams_tab:
     team_rows = [teams[tid] for tid in teams]
     team_rows.sort(key=lambda t: t["name"])
 
-    scatter = go.Figure()
-    for team in team_rows:
-        attack_avg = safe_div(
-            team["strength_attack_home"] + team["strength_attack_away"], 2
-        )
-        defence_avg = safe_div(
-            team["strength_defence_home"] + team["strength_defence_away"], 2
-        )
-        scatter.add_trace(
-            go.Scatter(
-                x=[attack_avg],
-                y=[defence_avg],
-                mode="markers+text",
-                text=[team["short"]],
-                textposition="top center",
-                marker=dict(color="#05f0ff", size=10),
-                customdata=[team["id"]],
-                name=team["name"],
-                showlegend=False,
-            )
-        )
-    scatter.update_xaxes(title="Attack strength (avg)")
-    scatter.update_yaxes(title="Defence strength (avg)")
-    apply_plotly_layout(scatter, title="Attack vs defence strength")
-    clicks = render_plotly(scatter, key="teams_scatter", height=360)
-    update_selected_team(clicks)
-
     selected_team_id = st.session_state.team_filter
     if selected_team_id and selected_team_id in teams:
         team = teams[selected_team_id]
@@ -836,7 +793,7 @@ with teams_tab:
         apply_plotly_layout(strength_fig, title="Home vs away strength", height=300)
         st.plotly_chart(strength_fig, use_container_width=True)
     else:
-        st.caption("Click a team in the scatter to see details.")
+        st.caption("Select a team in the sidebar to see strength details.")
 
     if current_gw:
         heatmap_start = current_gw
