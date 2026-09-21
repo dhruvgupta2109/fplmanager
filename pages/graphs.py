@@ -304,6 +304,7 @@ def update_selected_team(clicks):
 def build_fixture_difficulty_matrix(fixtures, team_ids, gw_start, gw_end):
     gws = list(range(gw_start, gw_end + 1))
     bucket = {team_id: {gw: [] for gw in gws} for team_id in team_ids}
+    opponents = {team_id: {gw: [] for gw in gws} for team_id in team_ids}
 
     for fixture in fixtures:
         gw = fixture.get("event")
@@ -313,17 +314,23 @@ def build_fixture_difficulty_matrix(fixtures, team_ids, gw_start, gw_end):
         team_a = fixture.get("team_a")
         if team_h in bucket:
             bucket[team_h][gw].append(to_int(fixture.get("team_h_difficulty"), 3))
+            opponents[team_h][gw].append(team_a)
         if team_a in bucket:
             bucket[team_a][gw].append(to_int(fixture.get("team_a_difficulty"), 3))
+            opponents[team_a][gw].append(team_h)
 
     matrix = []
+    opponent_matrix = []
     for team_id in team_ids:
         row = []
+        opponent_row = []
         for gw in gws:
             values = bucket[team_id][gw]
             row.append(round(sum(values) / len(values), 2) if values else None)
+            opponent_row.append(opponents[team_id][gw])
         matrix.append(row)
-    return gws, matrix
+        opponent_matrix.append(opponent_row)
+    return gws, matrix, opponent_matrix
 
 
 is_guest = st.session_state.get("guest", False)
@@ -844,16 +851,38 @@ with teams_tab:
             tid for tid in ordered_team_ids if tid != selected_team_id
         ]
 
-    gws, matrix = build_fixture_difficulty_matrix(
+    gws, matrix, opponent_matrix = build_fixture_difficulty_matrix(
         fixtures, ordered_team_ids, heatmap_start, heatmap_end
     )
+    team_labels = [teams[tid]["short"] for tid in ordered_team_ids]
+    cell_labels = []
+    for difficulty_row, opponent_row in zip(matrix, opponent_matrix):
+        labels = []
+        for difficulty, opponent_ids in zip(difficulty_row, opponent_row):
+            opponent_names = [
+                teams.get(opponent_id, {}).get("short", "UNK")
+                for opponent_id in opponent_ids
+            ]
+            labels.append(
+                ""
+                if difficulty is None
+                else f"<b>{difficulty:g}</b><br>{' / '.join(opponent_names)}"
+            )
+        cell_labels.append(labels)
+    heatmap_height = max(640, len(team_labels) * 44 + 160)
     heatmap = go.Figure(
         data=go.Heatmap(
             z=matrix,
+            text=cell_labels,
+            texttemplate="%{text}",
+            textfont=dict(color="#16051d", size=13),
             x=[f"GW{gw}" for gw in gws],
-            y=[teams[tid]["short"] for tid in ordered_team_ids],
+            y=team_labels,
             zmin=1,
             zmax=5,
+            xgap=2,
+            ygap=2,
+            hoverongaps=False,
             colorscale=[
                 [0.0, "#00ff87"],
                 [0.5, "#ffb500"],
@@ -862,7 +891,15 @@ with teams_tab:
             colorbar=dict(title="FDR"),
         )
     )
-    apply_plotly_layout(heatmap, title="Upcoming fixture difficulty", height=420)
+    apply_plotly_layout(
+        heatmap, title="Upcoming fixture difficulty", height=heatmap_height
+    )
+    heatmap.update_layout(plot_bgcolor="rgba(255,255,255,0.55)")
+    heatmap.update_yaxes(
+        tickmode="array",
+        tickvals=team_labels,
+        ticktext=team_labels,
+    )
     st.plotly_chart(heatmap, use_container_width=True)
 
 with live_tab:
