@@ -657,6 +657,27 @@ div[data-testid="stColumn"]:nth-of-type(2)
     min-width: 170px;
 }
 
+.standings-form-heading {
+    min-width: 170px;
+}
+
+.form-gw-labels {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    margin-top: 5px;
+    color: rgba(255,255,255,0.52);
+    font-size: 8px;
+    font-weight: 750;
+    letter-spacing: 0;
+}
+
+.form-gw-labels span {
+    width: 27px;
+    text-align: center;
+}
+
 .standings-form-list {
     display: flex;
     align-items: center;
@@ -1213,6 +1234,14 @@ def build_standings(teams, season_fixtures):
 def build_standings_html(standings, gw):
     body_rows = []
     team_count = len(standings)
+    current_gw = max(1, safe_int(gw))
+    visible_gameweeks = list(range(max(1, current_gw - 4), current_gw + 1))
+    gameweek_slots = ([None] * (5 - len(visible_gameweeks))) + visible_gameweeks
+    gameweek_labels = "".join(
+        f'<span>{f"GW{gameweek}" if gameweek is not None else ""}</span>'
+        for gameweek in gameweek_slots
+    )
+
     for position, row in enumerate(standings, start=1):
         if position == 1:
             status_class = "champions"
@@ -1271,7 +1300,8 @@ def build_standings_html(standings, gw):
         '<table class="standings-table">'
         '<thead><tr>'
         '<th scope="col">Pos</th><th scope="col" class="club-heading">Club</th>'
-        '<th scope="col">Last 5</th>'
+        f'<th scope="col" class="standings-form-heading"><div>Last 5</div>'
+        f'<div class="form-gw-labels">{gameweek_labels}</div></th>'
         '<th scope="col">Played</th><th scope="col">Won</th>'
         '<th scope="col">Drawn</th><th scope="col">Lost</th>'
         '<th scope="col" title="Goals for">GF</th><th scope="col" title="Goals against">GA</th>'
