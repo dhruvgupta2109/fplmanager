@@ -50,7 +50,7 @@ THEMES = {
 
 def init_theme_state():
     if THEME_STATE_KEY not in st.session_state:
-        st.session_state[THEME_STATE_KEY] = bool(st.session_state.get("dark_mode", False))
+        st.session_state[THEME_STATE_KEY] = bool(st.session_state.get("dark_mode", True))
 
     st.session_state["dark_mode"] = st.session_state[THEME_STATE_KEY]
 
@@ -61,7 +61,7 @@ def set_theme_preference(is_dark):
 
 
 def theme_is_dark():
-    return bool(st.session_state.get(THEME_STATE_KEY, st.session_state.get("dark_mode", False)))
+    return bool(st.session_state.get(THEME_STATE_KEY, st.session_state.get("dark_mode", True)))
 
 
 def render_theme_styles():
