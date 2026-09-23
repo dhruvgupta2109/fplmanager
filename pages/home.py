@@ -580,7 +580,7 @@ div[data-testid="stColumn"]:nth-of-type(2)
 
 .standings-table {
     width: 100%;
-    min-width: 720px;
+    min-width: 900px;
     border-collapse: collapse;
     color: #ffffff;
     font-size: 13px;
@@ -621,12 +621,11 @@ div[data-testid="stColumn"]:nth-of-type(2)
 .standings-position {
     width: 30px;
     font-weight: 850;
-    border-left: 3px solid transparent;
 }
 
-.standings-row.champions .standings-position { border-left-color: #00ff87; }
-.standings-row.europe .standings-position { border-left-color: #39b9ff; }
-.standings-row.relegation .standings-position { border-left-color: #ff4b5c; }
+.standings-row.champions .standings-position { box-shadow: inset 6px 0 0 #00ff87; }
+.standings-row.europe .standings-position { box-shadow: inset 6px 0 0 #39b9ff; }
+.standings-row.relegation .standings-position { box-shadow: inset 6px 0 0 #ff4b5c; }
 
 .standings-club {
     min-width: 180px;
@@ -653,6 +652,35 @@ div[data-testid="stColumn"]:nth-of-type(2)
     text-overflow: ellipsis;
     white-space: nowrap;
 }
+
+.standings-form {
+    min-width: 170px;
+}
+
+.standings-form-list {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+}
+
+.form-result {
+    width: 27px;
+    height: 27px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    color: #ffffff;
+    font-size: 11px;
+    font-weight: 900;
+    line-height: 1;
+}
+
+.form-result.win { background: #00e887; color: #10251a; }
+.form-result.draw { background: #8f86a8; }
+.form-result.loss { background: #ff4f70; }
+.form-result.empty { background: rgba(255,255,255,0.10); color: rgba(255,255,255,0.40); }
 
 .standings-gd.positive { color: #00ff87; font-weight: 800; }
 .standings-gd.negative { color: #ff7885; font-weight: 800; }
@@ -1091,14 +1119,25 @@ def build_trend_box_html(title, subtitle, rows):
 def build_standings(teams, season_fixtures):
     """Build the league table from completed FPL fixtures."""
     calculated = {
-        team.get("id"): {"played": 0, "win": 0, "draw": 0, "loss": 0, "gf": 0, "ga": 0}
+        team.get("id"): {
+            "played": 0,
+            "win": 0,
+            "draw": 0,
+            "loss": 0,
+            "gf": 0,
+            "ga": 0,
+            "form": [],
+        }
         for team in teams
         if team.get("id") is not None
     }
 
-    for fixture in season_fixtures:
-        if not fixture.get("finished"):
-            continue
+    completed_fixtures = sorted(
+        (fixture for fixture in season_fixtures if fixture.get("finished")),
+        key=lambda fixture: (fixture.get("kickoff_time") or "", fixture.get("id") or 0),
+    )
+
+    for fixture in completed_fixtures:
         home_id = fixture.get("team_h")
         away_id = fixture.get("team_a")
         home_score = fixture.get("team_h_score")
@@ -1120,12 +1159,18 @@ def build_standings(teams, season_fixtures):
         if home_score > away_score:
             home["win"] += 1
             away["loss"] += 1
+            home["form"].append("W")
+            away["form"].append("L")
         elif home_score < away_score:
             away["win"] += 1
             home["loss"] += 1
+            home["form"].append("L")
+            away["form"].append("W")
         else:
             home["draw"] += 1
             away["draw"] += 1
+            home["form"].append("D")
+            away["form"].append("D")
 
     rows = []
     for team in teams:
@@ -1151,6 +1196,7 @@ def build_standings(teams, season_fixtures):
             "ga": ga,
             "gd": gf - ga,
             "points": safe_int(points),
+            "form": totals.get("form", [])[-5:],
         })
 
     rows.sort(
@@ -1182,12 +1228,24 @@ def build_standings_html(standings, gw):
         gd_text = f"{gd:+d}" if gd else "0"
         club_name = html.escape(str(row["name"]))
         badge = logo_url(row.get("code"))
+        recent_form = row.get("form", [])[-5:]
+        form_slots = ([None] * (5 - len(recent_form))) + recent_form
+        form_html = "".join(
+            (
+                '<span class="form-result empty" aria-label="No result">&ndash;</span>'
+                if result is None
+                else f'<span class="form-result {"win" if result == "W" else "draw" if result == "D" else "loss"}" '
+                     f'aria-label="{"Won" if result == "W" else "Drawn" if result == "D" else "Lost"}">{result}</span>'
+            )
+            for result in form_slots
+        )
         body_rows.append(
             f'<tr class="standings-row {status_class}">'
             f'<td class="standings-position">{position}</td>'
             f'<td class="standings-club"><div class="standings-club-inner">'
             f'<img class="standings-logo" src="{badge}" alt="" loading="lazy">'
             f'<span class="standings-club-name">{club_name}</span></div></td>'
+            f'<td class="standings-form"><div class="standings-form-list">{form_html}</div></td>'
             f'<td>{row["played"]}</td>'
             f'<td>{row["win"]}</td>'
             f'<td>{row["draw"]}</td>'
@@ -1200,19 +1258,20 @@ def build_standings_html(standings, gw):
         )
 
     if not body_rows:
-        body_rows.append('<tr><td colspan="10">Standings are currently unavailable.</td></tr>')
+        body_rows.append('<tr><td colspan="11">Standings are currently unavailable.</td></tr>')
 
     return (
         '<div class="standings-wrap">'
         '<div class="glass-box standings-box">'
         '<div class="standings-header">'
         '<h3 class="standings-title">Premier League Table</h3>'
-        f'<span class="standings-updated">Through GW{gw}</span>'
+        f'<span class="standings-updated">Gameweek {gw}</span>'
         '</div>'
         '<div class="standings-scroll">'
         '<table class="standings-table">'
         '<thead><tr>'
         '<th scope="col">Pos</th><th scope="col" class="club-heading">Club</th>'
+        '<th scope="col">Last 5</th>'
         '<th scope="col">Played</th><th scope="col">Won</th>'
         '<th scope="col">Drawn</th><th scope="col">Lost</th>'
         '<th scope="col" title="Goals for">GF</th><th scope="col" title="Goals against">GA</th>'
