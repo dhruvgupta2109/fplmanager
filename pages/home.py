@@ -6,6 +6,7 @@ import ssl
 import certifi
 import os
 import tempfile
+import html
 from datetime import datetime, timezone
 from nav import render_top_nav
 
@@ -538,6 +539,180 @@ div[data-testid="stColumn"]:nth-of-type(2)
     padding: 18px 8px;
 }
 
+/* ── Premier League standings ── */
+.standings-wrap {
+    margin-top: 32px;
+    margin-bottom: 28px;
+}
+
+.standings-box {
+    border-radius: 18px;
+    overflow: hidden;
+    box-shadow: 0 16px 36px rgba(0,0,0,0.30);
+}
+
+.standings-header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 18px 22px 14px;
+    border-bottom: 1px solid rgba(255,255,255,0.16);
+}
+
+.standings-title {
+    margin: 0;
+    color: #ffffff;
+    font-size: 20px;
+    font-weight: 850;
+}
+
+.standings-updated {
+    color: rgba(255,255,255,0.66);
+    font-size: 12px;
+    white-space: nowrap;
+}
+
+.standings-scroll {
+    width: 100%;
+    overflow-x: auto;
+}
+
+.standings-table {
+    width: 100%;
+    min-width: 900px;
+    border-collapse: collapse;
+    color: #ffffff;
+    font-size: 13px;
+}
+
+.standings-table th {
+    padding: 10px 9px;
+    color: rgba(255,255,255,0.68);
+    background: rgba(19,4,45,0.26);
+    border-bottom: 1px solid rgba(255,255,255,0.14);
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.035em;
+    text-align: center;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+.standings-table th.club-heading {
+    text-align: left;
+}
+
+.standings-table td {
+    padding: 9px;
+    border-bottom: 1px solid rgba(255,255,255,0.09);
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+}
+
+.standings-table tbody tr:last-child td {
+    border-bottom: 0;
+}
+
+.standings-table tbody tr:hover {
+    background: rgba(255,255,255,0.08);
+}
+
+.standings-position {
+    width: 30px;
+    font-weight: 850;
+}
+
+.standings-row.champions .standings-position { box-shadow: inset 6px 0 0 #00ff87; }
+.standings-row.europe .standings-position { box-shadow: inset 6px 0 0 #39b9ff; }
+.standings-row.relegation .standings-position { box-shadow: inset 6px 0 0 #ff4b5c; }
+
+.standings-club {
+    min-width: 180px;
+    text-align: left !important;
+}
+
+.standings-club-inner {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.standings-logo {
+    width: 24px;
+    height: 24px;
+    object-fit: contain;
+    flex: 0 0 24px;
+}
+
+.standings-club-name {
+    overflow: hidden;
+    font-size: 14px;
+    font-weight: 750;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.standings-form {
+    min-width: 170px;
+}
+
+.standings-form-heading {
+    min-width: 170px;
+}
+
+.form-gw-labels {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    margin-top: 5px;
+    color: rgba(255,255,255,0.52);
+    font-size: 8px;
+    font-weight: 750;
+    letter-spacing: 0;
+}
+
+.form-gw-labels span {
+    width: 27px;
+    text-align: center;
+}
+
+.standings-form-list {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+}
+
+.form-result {
+    width: 27px;
+    height: 27px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    color: #ffffff;
+    font-size: 11px;
+    font-weight: 900;
+    line-height: 1;
+}
+
+.form-result.win { background: #00e887; color: #10251a; }
+.form-result.draw { background: #8f86a8; }
+.form-result.loss { background: #ff4f70; }
+.form-result.empty { background: rgba(255,255,255,0.10); color: rgba(255,255,255,0.40); }
+
+.standings-gd.positive { color: #00ff87; font-weight: 800; }
+.standings-gd.negative { color: #ff7885; font-weight: 800; }
+.standings-points { color: #00ff87; font-size: 15px; font-weight: 900; }
+
+@media (max-width: 900px) {
+    .standings-wrap { margin-top: 22px; }
+    .standings-header { padding: 15px 16px 12px; }
+    .standings-title { font-size: 18px; }
+}
+
 /* Zero gap and padding on column layout rows */
 div[data-testid="stHorizontalBlock"] {
     gap: 0 !important;
@@ -651,6 +826,13 @@ def fetch_bootstrap_data():
 def fetch_fixtures(event_id):
     ctx = ssl.create_default_context(cafile=certifi.where())
     url = f"https://fantasy.premierleague.com/api/fixtures/?event={event_id}"
+    with urllib.request.urlopen(url, context=ctx) as r:
+        return json.loads(r.read())
+
+@st.cache_data(ttl=300)
+def fetch_season_fixtures():
+    ctx = ssl.create_default_context(cafile=certifi.where())
+    url = "https://fantasy.premierleague.com/api/fixtures/"
     with urllib.request.urlopen(url, context=ctx) as r:
         return json.loads(r.read())
 
@@ -955,6 +1137,180 @@ def build_trend_box_html(title, subtitle, rows):
         f'</div>'
     )
 
+def build_standings(teams, season_fixtures):
+    """Build the league table from completed FPL fixtures."""
+    calculated = {
+        team.get("id"): {
+            "played": 0,
+            "win": 0,
+            "draw": 0,
+            "loss": 0,
+            "gf": 0,
+            "ga": 0,
+            "form": [],
+        }
+        for team in teams
+        if team.get("id") is not None
+    }
+
+    completed_fixtures = sorted(
+        (fixture for fixture in season_fixtures if fixture.get("finished")),
+        key=lambda fixture: (fixture.get("kickoff_time") or "", fixture.get("id") or 0),
+    )
+
+    for fixture in completed_fixtures:
+        home_id = fixture.get("team_h")
+        away_id = fixture.get("team_a")
+        home_score = fixture.get("team_h_score")
+        away_score = fixture.get("team_a_score")
+        if home_id not in calculated or away_id not in calculated:
+            continue
+        if home_score is None or away_score is None:
+            continue
+
+        home = calculated[home_id]
+        away = calculated[away_id]
+        home["played"] += 1
+        away["played"] += 1
+        home["gf"] += safe_int(home_score)
+        home["ga"] += safe_int(away_score)
+        away["gf"] += safe_int(away_score)
+        away["ga"] += safe_int(home_score)
+
+        if home_score > away_score:
+            home["win"] += 1
+            away["loss"] += 1
+            home["form"].append("W")
+            away["form"].append("L")
+        elif home_score < away_score:
+            away["win"] += 1
+            home["loss"] += 1
+            home["form"].append("L")
+            away["form"].append("W")
+        else:
+            home["draw"] += 1
+            away["draw"] += 1
+            home["form"].append("D")
+            away["form"].append("D")
+
+    rows = []
+    for team in teams:
+        team_id = team.get("id")
+        totals = calculated.get(team_id, {})
+        played = totals.get("played", 0)
+        wins = totals.get("win", 0)
+        draws = totals.get("draw", 0)
+        losses = totals.get("loss", 0)
+        points = (wins * 3) + draws
+        gf = totals.get("gf", 0)
+        ga = totals.get("ga", 0)
+
+        rows.append({
+            "official_position": safe_int(team.get("position")),
+            "name": team.get("name") or "Unknown",
+            "code": team.get("code"),
+            "played": played,
+            "win": wins,
+            "draw": draws,
+            "loss": losses,
+            "gf": gf,
+            "ga": ga,
+            "gd": gf - ga,
+            "points": safe_int(points),
+            "form": totals.get("form", [])[-5:],
+        })
+
+    rows.sort(
+        key=lambda row: (
+            row["points"],
+            row["gd"],
+            row["gf"],
+            -row["official_position"],
+        ),
+        reverse=True,
+    )
+    return rows
+
+def build_standings_html(standings, gw):
+    body_rows = []
+    team_count = len(standings)
+    current_gw = max(1, safe_int(gw))
+    visible_gameweeks = list(range(max(1, current_gw - 4), current_gw + 1))
+    gameweek_slots = ([None] * (5 - len(visible_gameweeks))) + visible_gameweeks
+    gameweek_labels = "".join(
+        f'<span>{f"GW{gameweek}" if gameweek is not None else ""}</span>'
+        for gameweek in gameweek_slots
+    )
+
+    for position, row in enumerate(standings, start=1):
+        if position == 1:
+            status_class = "champions"
+        elif position <= 5:
+            status_class = "europe"
+        elif position >= max(18, team_count - 2):
+            status_class = "relegation"
+        else:
+            status_class = ""
+
+        gd = row["gd"]
+        gd_class = "positive" if gd > 0 else "negative" if gd < 0 else ""
+        gd_text = f"{gd:+d}" if gd else "0"
+        club_name = html.escape(str(row["name"]))
+        badge = logo_url(row.get("code"))
+        recent_form = row.get("form", [])[-5:]
+        form_slots = ([None] * (5 - len(recent_form))) + recent_form
+        form_html = "".join(
+            (
+                '<span class="form-result empty" aria-label="No result">&ndash;</span>'
+                if result is None
+                else f'<span class="form-result {"win" if result == "W" else "draw" if result == "D" else "loss"}" '
+                     f'aria-label="{"Won" if result == "W" else "Drawn" if result == "D" else "Lost"}">{result}</span>'
+            )
+            for result in form_slots
+        )
+        body_rows.append(
+            f'<tr class="standings-row {status_class}">'
+            f'<td class="standings-position">{position}</td>'
+            f'<td class="standings-club"><div class="standings-club-inner">'
+            f'<img class="standings-logo" src="{badge}" alt="" loading="lazy">'
+            f'<span class="standings-club-name">{club_name}</span></div></td>'
+            f'<td class="standings-form"><div class="standings-form-list">{form_html}</div></td>'
+            f'<td>{row["played"]}</td>'
+            f'<td>{row["win"]}</td>'
+            f'<td>{row["draw"]}</td>'
+            f'<td>{row["loss"]}</td>'
+            f'<td>{row["gf"]}</td>'
+            f'<td>{row["ga"]}</td>'
+            f'<td class="standings-gd {gd_class}">{gd_text}</td>'
+            f'<td class="standings-points">{row["points"]}</td>'
+            f'</tr>'
+        )
+
+    if not body_rows:
+        body_rows.append('<tr><td colspan="11">Standings are currently unavailable.</td></tr>')
+
+    return (
+        '<div class="standings-wrap">'
+        '<div class="glass-box standings-box">'
+        '<div class="standings-header">'
+        '<h3 class="standings-title">Premier League Table</h3>'
+        f'<span class="standings-updated">Gameweek {gw}</span>'
+        '</div>'
+        '<div class="standings-scroll">'
+        '<table class="standings-table">'
+        '<thead><tr>'
+        '<th scope="col">Pos</th><th scope="col" class="club-heading">Club</th>'
+        f'<th scope="col" class="standings-form-heading"><div>Last 5</div>'
+        f'<div class="form-gw-labels">{gameweek_labels}</div></th>'
+        '<th scope="col">Played</th><th scope="col">Won</th>'
+        '<th scope="col">Drawn</th><th scope="col">Lost</th>'
+        '<th scope="col" title="Goals for">GF</th><th scope="col" title="Goals against">GA</th>'
+        '<th scope="col" title="Goal difference">GD</th><th scope="col">Points</th>'
+        '</tr></thead>'
+        f'<tbody>{"".join(body_rows)}</tbody>'
+        '</table></div></div></div>'
+    )
+
 bootstrap_data = fetch_bootstrap_data()
 events = bootstrap_data.get("events", [])
 teams = bootstrap_data.get("teams", [])
@@ -994,7 +1350,9 @@ team_map = {
 }
 
 fixtures = fetch_fixtures(gw)
+season_fixtures = fetch_season_fixtures()
 captained_top5, subbed_in_top5, subbed_out_top5 = build_top5_trends(bootstrap_data, gw)
+standings = build_standings(teams, season_fixtures)
 
 def build_league_html(leagues, show_total=False, max_count=4):
     html = ""
@@ -1301,3 +1659,5 @@ with right_col:
             ),
             unsafe_allow_html=True,
         )
+
+    st.markdown(build_standings_html(standings, gw), unsafe_allow_html=True)
