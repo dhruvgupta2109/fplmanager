@@ -1,0 +1,120 @@
+name: Keep Streamlit awake
+
+on:
+  schedule:
+    # Streamlit Community Cloud sleeps after 12 hours without traffic.
+    # Use an off-peak minute and visit every four hours for a wide buffer.
+    - cron: "37 */4 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: keep-streamlit-awake
+  cancel-in-progress: true
+
+jobs:
+  visit-app:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    container:
+      image: mcr.microsoft.com/playwright:v1.63.0-noble
+      options: --user 1001
+    env:
+      APP_URL: https://fplmanager.streamlit.app/
+
+    steps:
+      - name: Install Playwright client
+        run: npm install --no-save --no-package-lock playwright@1.63.0
+
+      - name: Open the app and establish a Streamlit session
+        shell: bash
+        run: |
+          node <<'NODE'
+          const { chromium } = require("playwright");
+
+          const appUrl = process.env.APP_URL;
+          let browser;
+
+          async function main() {
+            browser = await chromium.launch({ headless: true });
+            const page = await browser.newPage({
+              viewport: { width: 1280, height: 900 },
+              userAgent:
+                "Mozilla/5.0 (X11; Linux x86_64) " +
+                "AppleWebKit/537.36 Chrome/140 Safari/537.36",
+            });
+
+            let streamConnected = false;
+            const websocketUrls = [];
+
+            page.on("websocket", (socket) => {
+              websocketUrls.push(socket.url());
+              if (socket.url().includes("/_stcore/stream")) {
+                streamConnected = true;
+                console.log("Streamlit WebSocket connected.");
+              }
+            });
+
+            const response = await page.goto(appUrl, {
+              waitUntil: "domcontentloaded",
+              timeout: 120_000,
+            });
+
+            console.log(`Initial response: ${response?.status() ?? "unknown"}`);
+            console.log(`Current URL: ${page.url()}`);
+
+            if (
+              page.url().includes("share.streamlit.io/-/auth") ||
+              page.url().includes("/-/login")
+            ) {
+              throw new Error(
+                "The Streamlit app requires sign-in. Set the app to public before using this workflow."
+              );
+            }
+
+            await page.waitForTimeout(10_000);
+
+            const wakeButton = page
+              .getByRole("button", {
+                name: /get this app back up|wake(?: the)? app|wake up/i,
+              })
+              .first();
+
+            if (await wakeButton.isVisible().catch(() => false)) {
+              console.log("The app is sleeping; clicking its wake button.");
+              await wakeButton.click();
+            }
+
+            // A real Streamlit visit opens /_stcore/stream. Allow enough time for
+            // a sleeping instance to start before deciding that the visit failed.
+            const deadline = Date.now() + 240_000;
+            while (!streamConnected && Date.now() < deadline) {
+              await page.waitForTimeout(2_000);
+            }
+
+            if (!streamConnected) {
+              const bodyText = await page.locator("body").innerText().catch(() => "");
+              throw new Error(
+                "No Streamlit WebSocket connection was established. " +
+                  `Page URL: ${page.url()}; sockets: ${websocketUrls.join(", ") || "none"}; ` +
+                  `page text: ${bodyText.slice(0, 500)}`
+              );
+            }
+
+            // Keep the actual app session open briefly so Community Cloud records
+            // genuine traffic instead of only a health-check request.
+            await page.waitForTimeout(60_000);
+            console.log("Keep-awake visit completed successfully.");
+          }
+
+          main()
+            .catch((error) => {
+              console.error(error);
+              process.exitCode = 1;
+            })
+            .finally(async () => {
+              await browser?.close();
+            });
+          NODE
