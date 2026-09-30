@@ -28,8 +28,6 @@ Live app: https://fplmanager.streamlit.app
 
 ## Screenshots
 
-> Only a couple of screens are up for now — more will be added as the season progresses.
-
 <table border="1" cellpadding="10" cellspacing="0">
   <tr>
     <td width="50%" valign="top" align="left">
