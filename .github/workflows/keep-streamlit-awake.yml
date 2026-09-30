@@ -1,6 +1,11 @@
 name: Keep Streamlit awake
 
 on:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/keep-streamlit-awake.yml
   schedule:
     # Streamlit Community Cloud sleeps after 12 hours without traffic.
     # Use an off-peak minute and visit every four hours for a wide buffer.
