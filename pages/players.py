@@ -7,6 +7,7 @@ from pathlib import Path
 import certifi
 import streamlit as st  # type: ignore
 from nav import render_top_nav
+from player_images import player_image
 
 
 st.set_page_config(page_title="FPL Players", layout="wide")
@@ -189,16 +190,6 @@ def player_option_label(player_id, player_by_id, team_map, element_type_map, non
     if normalized == 0:
         return none_label or str(player_id)
     return display_name(player_by_id[normalized], team_map, element_type_map)
-
-
-def photo_url(player):
-    photo = player.get("photo")
-    if not photo:
-        return None
-    return (
-        "https://resources.premierleague.com/premierleague/photos/players/"
-        f"110x140/p{photo.replace('.jpg', '.png')}"
-    )
 
 
 def cost(player):
@@ -475,8 +466,7 @@ with st.container(border=True):
     with profile_left:
         image_col, text_col = st.columns([0.25, 0.75], vertical_alignment="center")
         with image_col:
-            if photo_url(profile):
-                st.image(photo_url(profile), width=110)
+            st.image(player_image(profile), width=110)
         with text_col:
             st.caption("LATEST PLAYER PROFILE")
             st.header(full_name(profile))
@@ -593,8 +583,7 @@ with st.container(border=True):
         for col, player in zip(card_cols, comparison_players):
             team = team_map.get(player.get("team"), {})
             with col:
-                if photo_url(player):
-                    st.image(photo_url(player), width=80)
+                st.image(player_image(player), width=80)
                 st.metric(player.get("web_name") or full_name(player), f"{to_int(player.get('total_points'))} pts")
                 st.caption(
                     f"{team.get('short_name', 'UNK')} - "

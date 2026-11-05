@@ -207,6 +207,8 @@ This app uses public Fantasy Premier League API endpoints, including:
 - `/api/entry/{manager_id}/event/{gw}/picks/`
 - `/api/fixtures/?event={gw}`
 
+Player portraits use the current official FPL image source (`premierleague25/photos/players/110x140/{code}.png`), with stable player codes from the live bootstrap data. The Players page caches verified images for one hour, tries the older official source when needed, and displays the black Premier League shirt from `assets/jersey_pl.png` when neither photo is available.
+
 ## Notes
 
 - The app depends on live FPL API availability and may show temporary errors during outages/rate limits.

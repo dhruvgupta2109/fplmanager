@@ -3,6 +3,7 @@ import json
 import urllib.request
 import ssl
 import certifi
+from player_images import photo_url
 
 st.set_page_config(
     page_title="FPL Manager",
@@ -35,7 +36,8 @@ def build_player_map(bootstrap):
             "team_code": team_codes.get(p["team"], 0),
             "position": p["element_type"],
             "price": p["now_cost"] / 10,
-            "photo": f"https://resources.premierleague.com/premierleague/photos/players/110x140/p{p['photo'].replace('.jpg','.png')}",
+            "photo": photo_url(p),
+            "photo_fallback": photo_url(p, legacy=True),
         }
         for p in bootstrap["elements"]
     }
