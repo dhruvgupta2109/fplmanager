@@ -460,10 +460,10 @@ latest_entry = latest_history_entry(history)
 recent_xgi = rolling_xgi(history)
 news = profile.get("news") or latest_match_label(latest_entry, team_map)
 
-with st.container(border=True):
-    profile_left, profile_right = st.columns([1.35, 1], gap="large")
+profile_col, analysis_col = st.columns([1.05, 0.95], gap="medium")
 
-    with profile_left:
+with profile_col:
+    with st.container(border=True, key="player_profile"):
         image_col, text_col = st.columns([0.25, 0.75], vertical_alignment="center")
         with image_col:
             st.image(player_image(profile), width=110)
@@ -489,16 +489,7 @@ with st.container(border=True):
         metric_cols[2].metric("Ownership", f"{to_float(profile.get('selected_by_percent')):.1f}%")
         metric_cols[3].metric("Value", f"{value_score(profile):.1f}")
 
-    with profile_right:
-        st.subheader("Recent Minutes & Output")
-        render_recent_form(history)
-
-st.write("")
-
-radar_col, value_col = st.columns([1.05, 0.95], gap="large")
-
-with radar_col:
-    with st.container(border=True):
+    with st.container(border=True, key="player_radar"):
         peers = [
             player
             for player in players
@@ -507,8 +498,12 @@ with radar_col:
         ]
         render_radar(profile, peers or players, history)
 
-with value_col:
-    with st.container(border=True):
+with analysis_col:
+    with st.container(border=True, key="player_recent_output"):
+        st.subheader("Recent Minutes & Output")
+        render_recent_form(history)
+
+    with st.container(border=True, key="player_value_picks"):
         st.subheader("Value Picks")
         st.caption("Price-to-output comparison")
 

@@ -9,6 +9,8 @@ import tempfile
 import html
 from datetime import datetime, timezone
 from nav import render_top_nav
+from home_insights import squad_alerts, squad_alerts_html, differential_watch, differential_watch_html
+from home_leaderboards import player_leaderboards, player_leaderboards_html, LEADERBOARD_LAYOUT_SCRIPT
 
 st.set_page_config(page_title="FPL Home", layout="wide")
 
@@ -538,6 +540,213 @@ div[data-testid="stColumn"]:nth-of-type(2)
     opacity: 0.75;
     padding: 18px 8px;
 }
+
+/* ── Squad alerts and differential watch (left column) ── */
+.home-insight-box {
+    margin-top: 22px;
+}
+
+.home-insight-box .section-title {
+    margin-top: 0;
+    margin-bottom: 8px;
+}
+
+.insight-subtitle {
+    margin: 0 0 14px;
+    color: var(--fpl-text-muted, rgba(255,255,255,0.78)) !important;
+    font-size: 11px;
+    text-align: center;
+    line-height: 1.5;
+}
+
+.insight-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.insight-row {
+    padding: 12px;
+    margin-bottom: 8px;
+    border-radius: 12px;
+    background: var(--fpl-soft-bg, rgba(255,255,255,0.08));
+    border: 1px solid var(--fpl-panel-border, rgba(255,255,255,0.12));
+}
+
+.insight-row:last-child { margin-bottom: 0; }
+
+.insight-row-head,
+.insight-player {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+}
+
+.insight-row-head { flex-wrap: wrap; }
+.insight-player { flex: 1; }
+.insight-player-copy { min-width: 0; }
+.insight-player-name { font-size: 15px; font-weight: 700; overflow-wrap: anywhere; }
+
+.insight-meta,
+.insight-news,
+.insight-empty {
+    color: var(--fpl-text-muted, rgba(255,255,255,0.78)) !important;
+    font-size: 11px;
+    line-height: 1.5;
+}
+
+.insight-availability { margin-top: 8px; }
+.insight-news { margin-top: 4px; font-size: 12px; overflow-wrap: anywhere; }
+.insight-empty { text-align: center; padding: 18px 8px; font-size: 13px; }
+.home-insight-box .insight-clear { color: #00ff87 !important; }
+
+.insight-count,
+.insight-status,
+.insight-fixture {
+    display: inline-block;
+    border: 1px solid rgba(255,255,255,0.18);
+    border-radius: 8px;
+    padding: 4px 7px;
+    font-size: 11px;
+    font-weight: 700;
+    flex-shrink: 0;
+}
+
+.insight-count { margin-left: 5px; padding: 1px 7px; color: #00ff87; }
+.insight-status.danger { color: #ff718b; background: rgba(255,75,92,0.12); border-color: rgba(255,75,92,0.4); }
+.insight-status.warning { color: #ffd166; background: rgba(255,209,102,0.10); border-color: rgba(255,209,102,0.35); }
+.insight-status.unknown { color: var(--fpl-text-muted); }
+.insight-fixtures {
+    display: flex;
+    justify-content: center;
+    align-items: stretch;
+    gap: 8px;
+    width: 100%;
+    max-width: 320px;
+    margin: 14px auto 12px;
+    text-align: center;
+}
+
+.insight-fixture {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    flex: 0 1 96px;
+    min-width: 0;
+    min-height: 52px;
+    box-sizing: border-box;
+    padding: 8px 6px;
+    text-align: center;
+}
+.insight-opponent { display: block; overflow-wrap: anywhere; }
+.insight-opponent.difficulty-1,
+.insight-opponent.difficulty-2 { color: #00ff87; }
+.insight-opponent.difficulty-4,
+.insight-opponent.difficulty-5 { color: #ff718b; }
+.insight-next-label { display: block; font-size: 9px; font-weight: 500; opacity: 0.8; margin-bottom: 2px; }
+.insight-fixture.difficulty-1,
+.insight-fixture.difficulty-2 { color: #00ff87; background: rgba(0,255,135,0.10); border-color: rgba(0,255,135,0.3); }
+.insight-fixture.difficulty-3 { color: #e4daf5; background: rgba(255,255,255,0.08); }
+.insight-fixture.difficulty-4,
+.insight-fixture.difficulty-5 { color: #ff718b; background: rgba(255,75,92,0.12); border-color: rgba(255,75,92,0.4); }
+
+.insight-stats {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+    margin-top: 10px;
+    padding-top: 8px;
+    padding-bottom: 12px;
+    border-top: 1px solid rgba(255,255,255,0.10);
+    text-align: center;
+}
+
+.insight-stat-label { display: block; font-size: 10px; color: var(--fpl-text-muted); }
+.insight-stat-value { display: block; font-size: 14px; font-weight: 800; color: #00ff87; }
+
+/* Fill only the remaining space beside Differential watch. */
+#home-leaderboard-slot {
+    height: 480px;
+    min-height: 0;
+    overflow: hidden;
+    box-sizing: border-box;
+}
+
+.player-leaderboards {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    min-height: 0;
+    box-sizing: border-box;
+    overflow: hidden;
+    padding: 18px;
+    border-radius: 22px;
+    box-shadow: 0 20px 45px rgba(0,0,0,0.35);
+}
+
+.leaderboards-header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 8px 16px;
+    flex-shrink: 0;
+    margin-bottom: 16px;
+}
+.leaderboards-header h3 { margin: 0; font-size: 24px; font-weight: 850; text-align: left; }
+.leaderboards-header p {
+    margin: 0 0 0 auto;
+    font-size: 12px;
+    text-align: right;
+    color: var(--fpl-text-muted) !important;
+}
+.leaderboard-column-subtitle { margin: 0; font-size: 11px; color: var(--fpl-text-muted) !important; }
+
+.leaderboard-columns {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(170px, 1fr));
+    gap: 14px;
+    flex: 1;
+    min-height: 0;
+    overflow-x: auto;
+    overflow-y: hidden;
+}
+
+.leaderboard-column { display: flex; flex-direction: column; min-height: 0; min-width: 0; }
+.leaderboard-column-title { margin: 0 0 3px; text-align: center; font-size: 15px; font-weight: 800; }
+.leaderboard-column-subtitle { text-align: center; margin-bottom: 12px; }
+
+.player-leaderboards .leaderboard-list {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(191,142,255,0.45) transparent;
+}
+
+.leaderboard-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 1 0 44px;
+    min-height: 44px;
+    box-sizing: border-box;
+    padding: 8px 10px;
+    border-radius: 12px;
+    background: var(--fpl-soft-bg);
+    border: 1px solid var(--fpl-panel-border);
+}
+
+.leaderboard-item .insight-player-name { font-size: 14px; }
+.leaderboard-value { color: #00ff87; font-size: 20px; font-weight: 900; flex-shrink: 0; }
 
 /* ── Premier League standings ── */
 .standings-wrap {
@@ -1351,6 +1560,12 @@ team_map = {
 
 fixtures = fetch_fixtures(gw)
 season_fixtures = fetch_season_fixtures()
+insight_teams = {team["id"]: team for team in teams}
+insight_positions = {position["id"]: position for position in bootstrap_data.get("element_types", [])}
+availability_alerts = squad_alerts(bootstrap_data.get("elements", []), picks)
+differentials = differential_watch(
+    bootstrap_data.get("elements", []), season_fixtures, picks, start_gameweek=next_gw,
+)
 captained_top5, subbed_in_top5, subbed_out_top5 = build_top5_trends(bootstrap_data, gw)
 standings = build_standings(teams, season_fixtures)
 
@@ -1596,6 +1811,18 @@ with left_col:
     </div>
     """, unsafe_allow_html=True)
 
+    st.markdown(
+        squad_alerts_html(
+            availability_alerts, insight_teams, insight_positions,
+            is_guest=is_guest, has_squad=bool(picks),
+        ),
+        unsafe_allow_html=True,
+    )
+    st.markdown(
+        differential_watch_html(differentials, insight_teams, insight_positions),
+        unsafe_allow_html=True,
+    )
+
 with right_col:
     st.markdown(f"""
     <div class="glass-box leagues-header-box">
@@ -1661,3 +1888,11 @@ with right_col:
         )
 
     st.markdown(build_standings_html(standings, gw), unsafe_allow_html=True)
+    st.html(
+        player_leaderboards_html(
+            player_leaderboards(bootstrap_data.get("elements", [])),
+            insight_teams, insight_positions,
+            gameweek=current_gw_from_events(events),
+        ) + LEADERBOARD_LAYOUT_SCRIPT,
+        unsafe_allow_javascript=True,
+    )
