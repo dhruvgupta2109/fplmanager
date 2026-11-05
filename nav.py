@@ -303,23 +303,19 @@ def render_top_nav():
     st.markdown(
         """
 <style>
-/* ── Fixed top nav ── */
+/* ── Top nav scrolls with the page ── */
 
 /* Hide Streamlit's own header to reclaim space */
 header[data-testid="stHeader"] {
     display: none !important;
 }
 
-/* The nav horizontal block: pulled out of flow and pinned to the top */
+/* Keep the nav in normal flow so it scrolls away without covering content. */
 div[data-testid="stHorizontalBlock"]:has(div[data-testid="stPageLink"]) {
-    position: fixed !important;
-    top: 60px !important;
-    left: 50% !important;
-    transform: translateX(-50%) !important;
-    width: calc(100% - 32px) !important;
+    position: static !important;
+    width: 100% !important;
     max-width: 1400px !important;
-    z-index: 9999 !important;
-    margin: 0 !important;
+    margin: 0 auto 20px !important;
     padding: 4px 10px !important;
     gap: 10px !important;
     min-height: 46px !important;
@@ -332,11 +328,10 @@ div[data-testid="stHorizontalBlock"]:has(div[data-testid="stPageLink"]) {
     box-shadow: 0 4px 24px rgba(0,0,0,0.35) !important;
 }
 
-/* Push page content down so it clears the fixed nav (bar bottom ~106px + 20px gap) */
+/* The nav now reserves its own space, so no fixed-header offset is needed. */
 div[data-testid="stAppViewBlockContainer"],
 .stMainBlockContainer {
-    padding-top: 70px !important;
-    padding-top: 80px !important;
+    padding-top: 2rem !important;
 }
 
 div[data-testid="stHorizontalBlock"]:has(div[data-testid="stPageLink"]) > div[data-testid="stColumn"] {
@@ -374,8 +369,6 @@ div[data-testid="stPageLink"] > a[aria-current="page"] {
 
 @media (max-width: 768px) {
     div[data-testid="stHorizontalBlock"]:has(div[data-testid="stPageLink"]) {
-        top: 60px !important;
-        width: calc(100% - 16px) !important;
         padding: 4px 8px !important;
         gap: 6px !important;
         min-height: 42px !important;
@@ -385,10 +378,6 @@ div[data-testid="stPageLink"] > a[aria-current="page"] {
     div[data-testid="stPageLink"] > a {
         font-size: 11.5px !important;
         padding: 6px 9px !important;
-    }
-
-    .stMainBlockContainer {
-        padding-top: 126px !important;
     }
 }
 </style>
