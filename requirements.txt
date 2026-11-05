@@ -2,3 +2,4 @@ streamlit
 plotly
 streamlit-plotly-events
 certifi
+pillow
