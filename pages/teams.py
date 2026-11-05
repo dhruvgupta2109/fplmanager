@@ -8,6 +8,7 @@ from pathlib import Path
 import certifi
 import streamlit as st # type: ignore
 from nav import render_top_nav
+from team_details import team_detail_panels, TEAM_PANEL_ALIGNMENT_SCRIPT
 
 
 st.set_page_config(page_title="FPL Teams", layout="wide")
@@ -430,6 +431,43 @@ div[role="radiogroup"] label {
 .column-section-gap {
     height: 20px;
 }
+
+.team-squad-panel,
+.team-form-panel { min-height: 0; min-width: 0; box-sizing: border-box; }
+.team-squad-panel { display: flex; flex-direction: column; }
+.team-squad-scroll { width: 100%; overflow-x: auto; flex: 1; display: flex; }
+.team-squad-table { min-width: 580px; flex: 1; }
+.team-squad-table th,
+.team-squad-table td { text-align: center; padding: 10px 8px; }
+.team-squad-table th:first-child,
+.team-squad-table .squad-player { text-align: left; font-weight: 800; }
+.team-squad-table th:last-child,
+.team-squad-table td:last-child { text-align: center; }
+.team-squad-table .squad-points { color: #00ff87 !important; font-weight: 900; }
+.squad-status { font-size: 11px; white-space: nowrap; }
+.squad-status.available { color: #00ff87; }
+.squad-status.flagged { color: #ffd166; }
+.team-form-panel { display: flex; flex-direction: column; gap: 16px; }
+.team-form-metrics { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.team-form-chart { margin-top: 0; }
+.team-form-history { flex: 1; display: flex; flex-direction: column; }
+.team-form-results { list-style: none; padding: 0 !important; margin: 0 !important; flex: 1; display: flex; flex-direction: column; gap: 8px; }
+.team-form-result {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex: 1;
+    min-height: 38px;
+    box-sizing: border-box;
+    padding: 8px 10px !important;
+    margin: 0 !important;
+    background: var(--fpl-soft-bg);
+    border: 1px solid var(--fpl-panel-border);
+    border-radius: 12px;
+}
+.team-form-gameweek { font-size: 11px; opacity: 0.75; }
+.team-form-opponent { flex: 1; min-width: 0; font-size: 13px; font-weight: 700; overflow-wrap: anywhere; }
+.team-form-score { font-size: 13px; font-weight: 900; white-space: nowrap; }
 
 @media (max-width: 900px) {
     .metric-grid,
@@ -1396,9 +1434,21 @@ def forecast_html(team_id, opponent_id, is_home, source_match=None):
 
 st.markdown("### Teams")
 
-name_options = [team.get("name") for team in teams]
+preferred_names = ["Aston Villa", "Arsenal"]
+alphabetical_names = [team.get("name") for team in teams]
+name_options = [name for name in preferred_names if name in alphabetical_names]
+name_options.extend(name for name in alphabetical_names if name not in preferred_names)
 
-left, right = st.columns(2, gap="large")
+# Apply the requested default once, including already-open sessions. Subsequent
+# selections remain under the user's control.
+if not st.session_state.get("teams_villa_default_applied"):
+    default_name = name_options[0]
+    for key in ("teams_snapshot_select", "teams_compare_a", "teams_forecast_team"):
+        st.session_state[key] = default_name
+    st.session_state.pop("teams_compare_b", None)
+    st.session_state["teams_villa_default_applied"] = True
+
+left, right = st.columns(2, gap="medium")
 
 with left:
     selected_name = st.selectbox("Team snapshot", name_options, key="teams_snapshot_select")
@@ -1430,9 +1480,16 @@ with right:
 # Continue each lower panel in its existing column. A separate `st.columns` row
 # would align both panels below the taller snapshot, leaving a large gap above
 # the Forecast panel.
+squad_panel, form_panel = team_detail_panels(
+    elements, fixtures, selected_team_id, team_lookup,
+    {position["id"]: position for position in bootstrap_data.get("element_types", [])},
+)
+
 with left:
     st.markdown("<div class='column-section-gap'></div>", unsafe_allow_html=True)
     st.markdown(clean_html(prediction_inputs_html(selected_team_id)), unsafe_allow_html=True)
+    st.markdown("<div class='column-section-gap'></div>", unsafe_allow_html=True)
+    st.markdown(clean_html(squad_panel), unsafe_allow_html=True)
 
 with right:
     st.markdown("<div class='column-section-gap'></div>", unsafe_allow_html=True)
@@ -1494,3 +1551,7 @@ with right:
         ),
         unsafe_allow_html=True,
     )
+    st.markdown("<div class='column-section-gap'></div>", unsafe_allow_html=True)
+    st.markdown(clean_html(form_panel), unsafe_allow_html=True)
+
+st.html(TEAM_PANEL_ALIGNMENT_SCRIPT, unsafe_allow_javascript=True)
